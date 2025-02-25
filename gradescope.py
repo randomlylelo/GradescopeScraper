@@ -32,7 +32,7 @@ br.addheaders = [('User-agent', 'Chrome')]
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
-print("Gradescope scraper, by Aaron Becker (some credit to YimengYang)")
+print("Gradescope scraper, by Aaron Becker (also credit to YimengYang for original Python 2 implementation)")
 print("------------------------")
 print("This script will create one folder per class, containing all of the files you've submitted for that class.")
 print("Your current directory (that all the class folders will be created in) is: {}".format(dir_path))
@@ -72,6 +72,7 @@ for f in br.forms():
         print(cName)
 
     if not input("Do you want to continue and download all content? (yY/nN)").lower() == "y":
+        print("Exiting. Have a good day :)")
         exit()
     
     print("Step 2) Downloading all content (this may take a while)...")
@@ -120,3 +121,5 @@ for f in br.forms():
                 print("\nGot error code {} while retreiving: {}".format(e.code, name))
         os.chdir("../")
         print("Finished downloading all assignments for {}".format(k))
+
+    print("Finished downloading everything, have a good day :)")
