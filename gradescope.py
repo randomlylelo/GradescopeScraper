@@ -120,43 +120,58 @@ if not use_cookies:
 base_url = "https://gradescope.com"
 soup = BeautifulSoup(br.open('https://gradescope.com/account').read(), "html.parser")
     
-# Find student courses section specifically
-student_section = soup.find('h2', string='Student Courses')
-links = {}
-skipped_instructor_courses = []
+# First, find instructor courses to skip
+instructor_section = soup.find('h2', string='Instructor Courses')
+instructor_courses = []
+if instructor_section:
+    # Get the next div after instructor header that contains course boxes
+    current = instructor_section.find_next_sibling()
+    while current:
+        if current.name == 'h2' and 'Student Courses' in current.get_text():
+            break
+        if current.find('a', {'class':'courseBox'}):
+            boxes = current.find_all('a', {'class':'courseBox'})
+            for box in boxes:
+                instructor_courses.append(box.find("h3").text)
+        current = current.find_next_sibling()
 
+# Now find student courses and organize by semester
+course_data = {}
+skipped_instructor_courses = instructor_courses.copy()
+
+# Find the Student Courses section and parse by semester  
+student_section = soup.find('h2', string='Student Courses')
 if student_section:
-    # Find the container that holds student courses
-    student_container = student_section.find_next_sibling()
-    while student_container and not student_container.find('a', {'class':'courseBox'}):
-        student_container = student_container.find_next_sibling()
-    
-    if student_container:
-        # Get only courses from the student section
-        student_course_boxes = student_container.find_all('a', {'class':'courseBox'})
-        for c in student_course_boxes:
-            n = c.find("h3").text
-            n_clean = n.replace("/", " ")
-            links[n_clean] = c.get("href")
-    
-    # Find instructor courses for reporting
-    instructor_section = soup.find('h2', string='Instructor Courses')
-    if instructor_section:
-        instructor_container = instructor_section.find_next_sibling()
-        while instructor_container and not instructor_container.find('a', {'class':'courseBox'}):
-            instructor_container = instructor_container.find_next_sibling()
+    # Find the courseList div that contains all student courses
+    course_list = student_section.find_next_sibling('div', {'class': 'courseList'})
+    if course_list:
+        # Find all term headers and their corresponding course containers
+        term_divs = course_list.find_all('div', {'class': 'courseList--term'})
         
-        if instructor_container:
-            instructor_boxes = instructor_container.find_all('a', {'class':'courseBox'})
-            for c in instructor_boxes:
-                skipped_instructor_courses.append(c.find("h3").text)
-else:
-    # Fallback: if no clear separation, get all courses
-    courseBoxes = soup.find_all('a', {'class':'courseBox'})
-    for c in courseBoxes:
-        n = c.find("h3").text
-        n_clean = n.replace("/", " ")
-        links[n_clean] = c.get("href")
+        for term_div in term_divs:
+            semester_name = term_div.get_text().strip()
+            course_data[semester_name] = {}
+            
+            # Find the next sibling which should be the courses for this term
+            courses_container = term_div.find_next_sibling('div', {'class': 'courseList--coursesForTerm'})
+            if courses_container:
+                # Get all course boxes in this semester
+                boxes = courses_container.find_all('a', {'class': 'courseBox'})
+                for box in boxes:
+                    course_name = box.find("h3").text
+                    if course_name not in instructor_courses:
+                        n_clean = course_name.replace("/", " ")
+                        course_data[semester_name][n_clean] = box.get("href")
+
+# Fallback: if no semester organization found, get all student courses
+if not course_data:
+    course_data = {"All Student Courses": {}}
+    all_course_boxes = soup.find_all('a', {'class':'courseBox'})
+    for box in all_course_boxes:
+        course_name = box.find("h3").text
+        if course_name not in instructor_courses:
+            n_clean = course_name.replace("/", " ")
+            course_data["All Student Courses"][n_clean] = box.get("href")
 
 if skipped_instructor_courses:
     print("Found instructor courses, skipping:")
@@ -164,8 +179,11 @@ if skipped_instructor_courses:
         print(f"  - {course}")
 
 print("Student classes read from your Gradescope account:")
-for cName in links.keys():
-    print(f"  - {cName}")
+for semester, courses in course_data.items():
+    if courses:  # Only show semesters with courses
+        print(f"{semester}:")
+        for course_name in courses.keys():
+            print(f"  - {course_name}")
 
 if not input("Do you want to continue and download all content? (yY/nN)").lower() == "y":
     print("Exiting. Have a good day :)")
@@ -173,49 +191,71 @@ if not input("Do you want to continue and download all content? (yY/nN)").lower(
 
 print("Step 2) Downloading all content (this may take a while)...")
 
-for k,v in links.items():
-    k = k.replace(" ", "_") # ensure that filename is valid
-    if not os.path.exists(k):
-        os.mkdir(k)
-    else:
-        print("Dir {} exists, skipping".format(k))
+# Create main backup directory
+backup_dir = "gradescope_backup"
+if not os.path.exists(backup_dir):
+    os.mkdir(backup_dir)
+
+# Process each semester
+for semester, courses in course_data.items():
+    if not courses:  # Skip empty semesters
         continue
-    course_soup = BeautifulSoup(br.open(base_url+ v).read(), "html.parser")
-    os.chdir(k)
-    assignment_table = course_soup.find('table', {'class':'table'})
-    assignment_links = {}
-    for head in assignment_table.find_all("th"):
-        a_res = head.find("a")
-        if a_res:
-            assignment_links[a_res.get("aria-label").split(' ', 1)[1]] = a_res.get("href")
+    
+    # Create semester directory
+    semester_clean = semester.replace("/", "_").replace(" ", "_")
+    semester_path = os.path.join(backup_dir, semester_clean)
+    if not os.path.exists(semester_path):
+        os.mkdir(semester_path)
+    
+    print(f"Processing {semester}...")
+    
+    # Process each course in this semester
+    for k, v in courses.items():
+        k_clean = k.replace(" ", "_")  # ensure that filename is valid
+        course_path = os.path.join(semester_path, k_clean)
+        
+        if not os.path.exists(course_path):
+            os.mkdir(course_path)
+        else:
+            print("Dir {} exists, skipping".format(course_path))
+            continue
+            
+        course_soup = BeautifulSoup(br.open(base_url+ v).read(), "html.parser")
+        os.chdir(course_path)
+        assignment_table = course_soup.find('table', {'class':'table'})
+        assignment_links = {}
+        for head in assignment_table.find_all("th"):
+            a_res = head.find("a")
+            if a_res:
+                assignment_links[a_res.get("aria-label").split(' ', 1)[1]] = a_res.get("href")
 
-    if (len(assignment_links) == 0):
-        print("No assignments found for {}".format(k))
-        os.chdir("../")
-        continue
+        if (len(assignment_links) == 0):
+            print("No assignments found for {}".format(k))
+            os.chdir(dir_path)  # Return to script directory
+            continue
 
-    print("{}'s assignments:".format(k))
-    for aName in assignment_links.keys():
-        print(aName)
-    print("Now downloading all assignments in '{}' (this may take a while)...".format(k))
+        print("{}'s assignments:".format(k))
+        for aName in assignment_links.keys():
+            print(aName)
+        print("Now downloading all assignments in '{}' (this may take a while)...".format(k))
 
-    for name, l in tqdm(assignment_links.items()):
-        assignment_soup = BeautifulSoup(br.open(base_url+l).read(), "html.parser")
-        a_res = assignment_soup.find_all("a", {"class": "actionBar--action"})
-        download_link = base_url + l + ".pdf"
-        for a in a_res:
-            tmp = a.get("href")
-            if tmp:
-                download_link = base_url + tmp
-                break
-        orig_filename = download_link.split("/")[-1]
-        extension = orig_filename.split(".")[-1]
-        name = name.replace("/", " ")
-        try:
-            br.retrieve(download_link,'{}.{}'.format(name, extension))[0]
-        except mechanize.HTTPError as e:
-            print("\nGot error code {} while retreiving: {}".format(e.code, name))
-    os.chdir("../")
-    print("Finished downloading all assignments for {}".format(k))
+        for name, l in tqdm(assignment_links.items()):
+            assignment_soup = BeautifulSoup(br.open(base_url+l).read(), "html.parser")
+            a_res = assignment_soup.find_all("a", {"class": "actionBar--action"})
+            download_link = base_url + l + ".pdf"
+            for a in a_res:
+                tmp = a.get("href")
+                if tmp:
+                    download_link = base_url + tmp
+                    break
+            orig_filename = download_link.split("/")[-1]
+            extension = orig_filename.split(".")[-1]
+            name = name.replace("/", " ")
+            try:
+                br.retrieve(download_link,'{}.{}'.format(name, extension))[0]
+            except mechanize.HTTPError as e:
+                print("\nGot error code {} while retreiving: {}".format(e.code, name))
+        os.chdir(dir_path)  # Return to script directory
+        print("Finished downloading all assignments for {}".format(k))
 
 print("Finished downloading everything, have a good day :)")
