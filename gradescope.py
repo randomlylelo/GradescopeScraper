@@ -159,11 +159,13 @@ else:
         links[n_clean] = c.get("href")
 
 if skipped_instructor_courses:
-    print(f"Found instructor courses, skipping: {', '.join(skipped_instructor_courses)}")
+    print("Found instructor courses, skipping:")
+    for course in skipped_instructor_courses:
+        print(f"  - {course}")
 
 print("Student classes read from your Gradescope account:")
 for cName in links.keys():
-    print(cName)
+    print(f"  - {cName}")
 
 if not input("Do you want to continue and download all content? (yY/nN)").lower() == "y":
     print("Exiting. Have a good day :)")
