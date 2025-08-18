@@ -120,14 +120,48 @@ if not use_cookies:
 base_url = "https://gradescope.com"
 soup = BeautifulSoup(br.open('https://gradescope.com/account').read(), "html.parser")
     
-courseBoxes = soup.find_all('a', {'class':'courseBox'})
+# Find student courses section specifically
+student_section = soup.find('h2', string='Student Courses')
 links = {}
-for c in courseBoxes:
-    n = c.find("h3").text
-    n = n.replace("/", " ")
-    links[n] = c.get("href")
+skipped_instructor_courses = []
 
-print("Classes read from your Gradescope account:")
+if student_section:
+    # Find the container that holds student courses
+    student_container = student_section.find_next_sibling()
+    while student_container and not student_container.find('a', {'class':'courseBox'}):
+        student_container = student_container.find_next_sibling()
+    
+    if student_container:
+        # Get only courses from the student section
+        student_course_boxes = student_container.find_all('a', {'class':'courseBox'})
+        for c in student_course_boxes:
+            n = c.find("h3").text
+            n_clean = n.replace("/", " ")
+            links[n_clean] = c.get("href")
+    
+    # Find instructor courses for reporting
+    instructor_section = soup.find('h2', string='Instructor Courses')
+    if instructor_section:
+        instructor_container = instructor_section.find_next_sibling()
+        while instructor_container and not instructor_container.find('a', {'class':'courseBox'}):
+            instructor_container = instructor_container.find_next_sibling()
+        
+        if instructor_container:
+            instructor_boxes = instructor_container.find_all('a', {'class':'courseBox'})
+            for c in instructor_boxes:
+                skipped_instructor_courses.append(c.find("h3").text)
+else:
+    # Fallback: if no clear separation, get all courses
+    courseBoxes = soup.find_all('a', {'class':'courseBox'})
+    for c in courseBoxes:
+        n = c.find("h3").text
+        n_clean = n.replace("/", " ")
+        links[n_clean] = c.get("href")
+
+if skipped_instructor_courses:
+    print(f"Found instructor courses, skipping: {', '.join(skipped_instructor_courses)}")
+
+print("Student classes read from your Gradescope account:")
 for cName in links.keys():
     print(cName)
 
