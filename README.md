@@ -1,23 +1,65 @@
 # GradescopeScraper
 
-Short Python script that scrapes all Gradescope data for a class
+Python script that downloads all your Gradescope submissions and feedback, organized by semester.
 
-No idea why they don't have a "Download All" button it's really annoying
+No idea why they don't have a "Download All" button it's really annoying.
 
-Inpsired by Python 2.x script written by YimengYang, found [here](https://github.com/YimengYang/gradescope)
+Inspired by Python 2.x script written by YimengYang, found [here](https://github.com/YimengYang/gradescope)
 
-## Instructions for Use
+## Quick Start
 
-Download this directory, and `cd` into it
+### Option 1: Cookie Authentication (Recommended for SSO users)
 
-Then, install dependencies:
+1. **Install dependencies:**
+   ```bash
+   pip3 install mechanize tqdm html2text bs4
+   ```
 
-`pip3 install mechanize tqdm html2text bs4`
+2. **Export your browser cookies:**
+   - Log into Gradescope via SSO in your browser
+   - Install a cookie export extension:
+     - **Chrome:** "Get cookies.txt CLEAN" extension
+   - Export cookies to `all_cookies.txt` in the script directory
 
-Finally, `cd` to the script directory and run it:
+3. **Run the scraper:**
+   ```bash
+   python3 gradescope.py
+   ```
 
-`python3 gradescope.py`
+### Option 2: Username/Password Authentication
 
-You will then be prompted for your Gradescope username and password in plaintext (these are not used for anything other then authenticating your account)
+1. **Install dependencies:**
+   ```bash
+   pip3 install mechanize tqdm html2text bs4
+   ```
 
-After answering `y` to confirm you want to download everything, the script will then download all of your files!
+2. **Run the scraper:**
+   ```bash
+   python3 gradescope.py
+   ```
+   
+3. **Enter credentials when prompted**
+
+## Features
+
+- **Automatic SSO support** - Works with institutional Single Sign-On
+- **Smart organization** - Creates folder structure like:
+  ```
+  gradescope_backup/
+  ├── Fall_2024/
+  │   ├── CS_101/
+  │   └── Math_200/
+  ├── Spring_2024/
+  │   └── Physics_150/
+  └── [Other_Semesters]/
+  ```
+- **Instructor course filtering** - Only downloads your student courses
+- **Progress tracking** - Shows download progress with progress bars
+- **Error handling** - Graceful handling of network issues and missing files
+
+## Notes
+
+- The script automatically skips instructor courses and only downloads student submissions
+- Cookies expire periodically, so you may need to re-export them
+- All downloaded files include your submissions, feedback, and rubric annotations
+- The script creates one folder per class with all submitted assignments
