@@ -1,0 +1,12 @@
+[project]
+name = "gradescopescraper"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "bs4>=0.0.2",
+    "html2text>=2025.4.15",
+    "mechanize>=0.4.10",
+    "tqdm>=4.67.1",
+]
