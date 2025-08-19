@@ -214,11 +214,11 @@ for semester, courses in course_data.items():
         k_clean = k.replace(" ", "_")  # ensure that filename is valid
         course_path = os.path.join(semester_path, k_clean)
         
-        if not os.path.exists(course_path):
-            os.mkdir(course_path)
-        else:
-            print("Dir {} exists, skipping".format(course_path))
+        if os.path.exists(course_path):
+            print(f"  ⏭️  Skipping {k} - directory already exists")
             continue
+            
+        os.mkdir(course_path)
             
         course_soup = BeautifulSoup(br.open(base_url+ v).read(), "html.parser")
         os.chdir(course_path)
